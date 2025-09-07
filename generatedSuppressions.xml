@@ -2449,3 +2449,11 @@ only pkg:maven/org.clojure:clojure@.* is the CPE cpe:/a:clojure:clojure
    <packageUrl regex="true">^pkg:maven/org\.jooq.*/jooq-meta-extensions-liquibase@.*$</packageUrl>
    <cpe>cpe:/a:liquibase:liquibase</cpe>
 </suppress>
+
+<suppress base="true">
+   <notes><![CDATA[
+   FP per issue #7906
+   ]]></notes>
+   <packageUrl regex="true">^pkg:maven/org\.springframework\.ai/spring-ai-mongodb-atlas-store@.*$</packageUrl>
+   <cpe>cpe:/a:mongodb:mongodb</cpe>
+</suppress>
