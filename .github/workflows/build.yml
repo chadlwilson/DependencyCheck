@@ -141,6 +141,8 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: archive-snapshot
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Build Docker Image
         run: ./build-docker.sh
       - name: build scan target
