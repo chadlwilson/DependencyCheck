@@ -2510,3 +2510,10 @@ only pkg:maven/org.clojure:clojure@.* is the CPE cpe:/a:clojure:clojure
     <packageUrl regex="true">^pkg:maven/net\.java\.dev\.jna/jna-jpms@.*$</packageUrl>
     <cpe>cpe:/a:oracle:java_se</cpe>
 </suppress>
+<suppress base="true">
+    <notes><![CDATA[
+    FP per issue #8260
+    ]]></notes>
+    <packageUrl regex="true">^pkg:maven/org\.apache\.felix/org\.apache\.felix\.framework@.*$</packageUrl>
+    <cpe>cpe:/a:sun:sun_ftp</cpe>
+</suppress>
