@@ -506,9 +506,8 @@ public class ReportGenerator {
      * Reformats the given XML file.
      *
      * @param path the path to the XML file to be reformatted
-     * @throws ReportException thrown if the given JSON file is malformed
      */
-    private void pretifyXml(String path) throws ReportException {
+    private void pretifyXml(String path) {
         final String outputPath = path + ".pretty";
         final File in = new File(path);
         final File out = new File(outputPath);
@@ -520,10 +519,7 @@ public class ReportGenerator {
             transformer.setOutputProperty(OutputKeys.INDENT, "yes");
             transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
 
-            final SAXSource saxs = new SAXSource(new InputSource(path));
-            final XMLReader saxReader = XmlUtils.buildSecureSaxParser().getXMLReader();
-
-            saxs.setXMLReader(saxReader);
+            final SAXSource saxs = new SAXSource(XmlUtils.buildSecureXmlReader(), new InputSource(path));
             transformer.transform(saxs, new StreamResult(new OutputStreamWriter(os, StandardCharsets.UTF_8)));
         } catch (ParserConfigurationException | TransformerConfigurationException ex) {
             LOGGER.debug("Configuration exception when pretty printing", ex);
