@@ -460,13 +460,6 @@ public class ReportGenerator {
                 logTag = "templates/" + templateName + ".vsl";
                 input = FileUtils.getResourceAsStream(logTag);
             }
-            if (input == null) {
-                logTag = templateName;
-                input = FileUtils.getResourceAsStream(templateName);
-            }
-            if (input == null) {
-                throw new ReportException("Template file doesn't exist: " + logTag);
-            }
 
             try (InputStreamReader reader = new InputStreamReader(input, StandardCharsets.UTF_8);
                  OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)) {
