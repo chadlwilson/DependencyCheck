@@ -229,12 +229,14 @@ Copyright (c) 2013 Jeremy Long. All Rights Reserved.
                         <configuration>
                             <!--streamLogs>true</streamLogs-->
                             <parallelThreads>4</parallelThreads>
-                            <mavenOpts>${failsafeArgLine}</mavenOpts>
                             <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
                             <localRepositoryPath>target/local-repo</localRepositoryPath>
                             <properties>
                                 <odc.version>${project.version}</odc.version>
                             </properties>
+                            <!-- Doesn't seem a way to make this plugin toolchain aware, so have to use a property
+                                 or env var to get the JAVA_HOME from to match what surefire/failsafe are using -->
+                            <javaHome>${toolchain.jdk.test.home}</javaHome>
                         </configuration>
                         <executions>
                             <execution>
@@ -245,13 +247,6 @@ Copyright (c) 2013 Jeremy Long. All Rights Reserved.
                                 </goals>
                             </execution>
                         </executions>
-                        <dependencies>
-                            <dependency>
-                                <groupId>org.apache.commons</groupId>
-                                <artifactId>commons-lang3</artifactId>
-                                <version>${commons-lang3.version}</version>
-                            </dependency>
-                        </dependencies>
                     </plugin>
                 </plugins>
             </build>
