@@ -25,14 +25,12 @@ jobs:
     runs-on: ubuntu-latest 
     steps:
       - uses: actions/checkout@v6
-      - name: Check Maven Cache
-        id: maven-cache
+      - name: Check ODC Data Cache
+        id: odc-data-cache
         uses: actions/cache@v5
         with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          path: core/target/data
+          key: odc-data
       - uses: actions/setup-dotnet@v5.1.0
         with:
           dotnet-version: '8.0.x'
@@ -43,6 +41,9 @@ jobs:
             ${{ matrix.jdk_test_version }}
             ${{ env.MAVEN_JDK_DEFAULT_VERSION }}
           distribution: 'zulu'
+          check-latest: true
+          cache: 'maven'
+          cache-dependency-path: '**/pom.xml'
       - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
         with:
           version: 6.0.2
@@ -105,14 +106,18 @@ jobs:
     runs-on: ubuntu-latest 
     steps:
       - uses: actions/checkout@v6
-      - name: Check Maven Cache
-        id: maven-cache
+      - name: Maven Integration Test Cache
+        id: maven-it-cache
         uses: actions/cache@v5
         with:
-          path: ~/.m2/repository/
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          path: maven/target/local-repo
+          key: mvn-it-repo
+      - name: Check ODC Data Cache
+        id: odc-data-cache
+        uses: actions/cache@v5
+        with:
+          path: core/target/data
+          key: odc-data
       - uses: actions/setup-dotnet@v5.1.0
         with:
           dotnet-version: '8.0.x'
@@ -123,6 +128,9 @@ jobs:
             ${{ matrix.jdk_test_version }}
             ${{ env.MAVEN_JDK_DEFAULT_VERSION }}
           distribution: 'zulu'
+          check-latest: true
+          cache: 'maven'
+          cache-dependency-path: '**/pom.xml'
       - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
         with:
           version: 6.0.2
@@ -158,19 +166,14 @@ jobs:
     runs-on: ubuntu-latest 
     steps:
       - uses: actions/checkout@v6
-      - name: Check Maven Cache
-        id: maven-cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.m2/repository/
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
           java-version: ${{ env.MAVEN_JDK_DEFAULT_VERSION }}
           distribution: 'zulu'
+          check-latest: true
+          cache: 'maven'
+          cache-dependency-path: '**/pom.xml'
       - name: Checkstyle
         id: checkstyle
         run: |
@@ -191,14 +194,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-      - name: Check Maven Cache
-        id: maven-cache
-        uses: actions/cache@v5
+      - name: Set up JDK
+        uses: actions/setup-java@v5
         with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          java-version: ${{ env.MAVEN_JDK_DEFAULT_VERSION }}
+          distribution: 'zulu'
+          check-latest: true
+          cache: 'maven'
+          cache-dependency-path: '**/pom.xml'
       - name: Download release build
         uses: actions/download-artifact@v7
         with:

@@ -32,15 +32,7 @@ jobs:
           cat <(echo -e "${{ secrets.GPG_PRIVATE_KEY }}") | gpg --batch --import
           gpg --list-secret-keys --keyid-format LONG
       - uses: actions/checkout@v6
-      - name: Check Maven Cache
-        id: maven-cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-      - name: Check Local Maven Cache
+      - name: Maven Integration Test Cache
         id: maven-it-cache
         uses: actions/cache@v5
         with:
@@ -62,6 +54,9 @@ jobs:
             ${{ matrix.jdk_test_version }}
             ${{ env.MAVEN_JDK_DEFAULT_VERSION }}
           distribution: 'zulu'
+          check-latest: true
+          cache: 'maven'
+          cache-dependency-path: '**/pom.xml'
           server-id: central
           server-username: ${{ secrets.CENTRAL_USER }}
           server-password: ${{ secrets.CENTRAL_PASSWORD }}
@@ -129,14 +124,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-      - name: Check Maven Cache
-        id: maven-cache
-        uses: actions/cache@v5
+      - name: Set up JDK
+        uses: actions/setup-java@v5
         with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          java-version: ${{ env.MAVEN_JDK_DEFAULT_VERSION }}
+          distribution: 'zulu'
+          check-latest: true
+          cache: 'maven'
+          cache-dependency-path: '**/pom.xml'
       - name: Download release build
         uses: actions/download-artifact@v7
         with:
