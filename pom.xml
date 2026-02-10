@@ -1381,8 +1381,8 @@ Copyright (c) 2012 - Jeremy Long
         <!-- endregion -->
         <!-- region generic annotation libraries for compile / codereview relevant annotations -->
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
             <scope>compile</scope>
             <optional>true</optional>
         </dependency>
