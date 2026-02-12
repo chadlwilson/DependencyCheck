@@ -1,10 +1,6 @@
-#!/bin/bash -e
-
-VERSION=$(mvn -q \
-    -Dexec.executable="echo" \
-    -Dexec.args='${project.version}' \
-    --non-recursive \
-    org.codehaus.mojo:exec-maven-plugin:3.5.1:exec)
+#!/usr/bin/env bash
+set -euo pipefail
+VERSION="$(mvn help:evaluate -q --non-recursive -DforceStdout -Dexpression=project.version)"
 
 OWASPDC_DIRECTORY=$HOME/OWASP-Dependency-Check
 DATA_DIRECTORY="$OWASPDC_DIRECTORY/data"
