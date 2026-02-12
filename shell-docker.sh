@@ -6,13 +6,6 @@ VERSION=$(mvn -q \
     --non-recursive \
     org.codehaus.mojo:exec-maven-plugin:3.5.1:exec)
 
-SCAN_TARGET="./cli/target/release/lib"
-
-if [ ! -d "$SCAN_TARGET" ]; then 
-  echo "Scan target does not exist: $SCAN_TARGET"
-  exit 1
-fi
-
 OWASPDC_DIRECTORY=$HOME/OWASP-Dependency-Check
 DATA_DIRECTORY="$OWASPDC_DIRECTORY/data"
 REPORT_DIRECTORY="$OWASPDC_DIRECTORY/reports"
