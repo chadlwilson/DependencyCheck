@@ -2012,3 +2012,10 @@ only pkg:maven/org.clojure:clojure@.* is the CPE cpe:/a:clojure:clojure
     <packageUrl regex="true">^pkg:nuget/DotNumerics@.*$</packageUrl>
     <cpe>cpe:/a:lapack_project:lapack</cpe>
 </suppress>
+<suppress base="true">
+    <notes><![CDATA[
+    FP per issue #8309
+    ]]></notes>
+    <packageUrl regex="true">^pkg:nuget/DotNumerics@.*$</packageUrl>
+    <cpe>cpe:/a:singular:singular</cpe>
+</suppress>
