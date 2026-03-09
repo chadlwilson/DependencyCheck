@@ -2041,3 +2041,10 @@ only pkg:maven/org.clojure:clojure@.* is the CPE cpe:/a:clojure:clojure
     <packageUrl regex="true">^pkg:maven/org\.apache\.cxf\.karaf/cxf-karaf-commands@.*$</packageUrl>
     <cpe>cpe:/a:apache:karaf</cpe>
 </suppress>
+<suppress base="true">
+    <notes><![CDATA[
+    FP per issue #8361
+    ]]></notes>
+    <packageUrl regex="true">^pkg:maven/org\.springframework\.boot/spring-boot-batch@.*$</packageUrl>
+    <cpe>cpe:/a:pivotal_software:spring_batch</cpe>
+</suppress>
