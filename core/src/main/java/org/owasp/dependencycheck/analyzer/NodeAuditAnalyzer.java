@@ -139,14 +139,13 @@ public class NodeAuditAnalyzer extends AbstractNpmAnalyzer {
             return;
         }
         final File packageJson = new File(packageLock.getParentFile(), "package.json");
-        final List<Advisory> advisories;
-        final MultiValuedMap<String, String> dependencyMap = new HashSetValuedHashMap<>();
-        //final Map<String, String> dependencyMap = new HashMap<>();
-        if (packageJson.isFile()) {
-            advisories = analyzePackage(packageLock, packageJson, dependency, dependencyMap);
-        } else {
-            advisories = legacyAnalysis(packageLock, dependency, dependencyMap);
+        if (!packageJson.isFile()) {
+            LOGGER.info("Skipping {} because package.json does not exist", dependency.getFilePath());
+            return;
         }
+
+        final MultiValuedMap<String, String> dependencyMap = new HashSetValuedHashMap<>();
+        final List<Advisory> advisories = analyzePackage(packageLock, packageJson, dependency, dependencyMap);
         try {
             processResults(advisories, engine, dependency, dependencyMap);
         } catch (CpeValidationException ex) {
@@ -210,63 +209,6 @@ public class NodeAuditAnalyzer extends AbstractNpmAnalyzer {
             }
             LOGGER.error("NodeAuditAnalyzer failed on {}", dependency.getActualFilePath());
             throw e;
-        }
-    }
-
-    /**
-     * Analyzes the package and package-lock files by extracting dependency
-     * information, creating a payload to submit to the npm audit API,
-     * submitting the payload, and returning the identified advisories.
-     *
-     * @param file a reference to the package-lock.json
-     * @param dependency a reference to the dependency-object for the
-     * package-lock.json
-     * @param dependencyMap a collection of module/version pairs; during
-     * creation of the payload the dependency map is populated with the
-     * module/version information.
-     * @return a list of advisories
-     * @throws AnalysisException thrown when there is an error creating or
-     * submitting the npm audit API payload
-     */
-    private List<Advisory> legacyAnalysis(final File file, Dependency dependency, MultiValuedMap<String, String> dependencyMap)
-            throws AnalysisException {
-
-        try (JsonReader jsonReader = Json.createReader(Files.newInputStream(file.toPath()))) {
-
-            // Retrieves the contents of package-lock.json from the Dependency
-            final JsonObject packageJson = jsonReader.readObject();
-
-            final String projectName = packageJson.getString("name", "");
-            final String projectVersion = packageJson.getString("version", "");
-            if (!projectName.isEmpty()) {
-                dependency.setName(projectName);
-            }
-            if (!projectVersion.isEmpty()) {
-                dependency.setVersion(projectVersion);
-            }
-
-            // Modify the payload to meet the NPM Audit API requirements
-            final JsonObject payload = NpmPayloadBuilder.build(packageJson, dependencyMap,
-                    getSettings().getBoolean(Settings.KEYS.ANALYZER_NODE_AUDIT_SKIPDEV, false));
-
-            // Submits the package payload to the nsp check service
-            return getSearcher().submitPackage(payload);
-
-        } catch (URLConnectionFailureException e) {
-            this.setEnabled(false);
-            throw new AnalysisException("Failed to connect to the NPM Audit API (NodeAuditAnalyzer); the analyzer "
-                    + "is being disabled and may result in false negatives.", e);
-        } catch (IOException e) {
-            LOGGER.debug("Error reading dependency or connecting to NPM Audit API", e);
-            this.setEnabled(false);
-            throw new AnalysisException("Failed to read results from the NPM Audit API (NodeAuditAnalyzer); "
-                    + "the analyzer is being disabled and may result in false negatives.", e);
-        } catch (JsonException e) {
-            throw new AnalysisException(String.format("Failed to parse %s file from the NPM Audit API "
-                    + "(NodeAuditAnalyzer).", file.getPath()), e);
-        } catch (SearchException ex) {
-            LOGGER.error("NodeAuditAnalyzer failed on {}", dependency.getActualFilePath());
-            throw ex;
         }
     }
 }
