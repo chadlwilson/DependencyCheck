@@ -2099,3 +2099,11 @@ only pkg:maven/org.clojure:clojure@.* is the CPE cpe:/a:clojure:clojure
     <packageUrl regex="true">^pkg:(?!golang/).*$</packageUrl>
     <cpe regex="true">cpe:/a:distribution(_project)?:distribution:.*</cpe>
 </suppress>
+
+<suppress base="true">
+    <notes><![CDATA[
+    FP per issue #8439
+    ]]></notes>
+    <packageUrl regex="true">^pkg:maven/org\.eclipse\.platform/org\.eclipse\.equinox\.cm@.*$</packageUrl>
+    <cpe>cpe:/a:eclipse:platform</cpe>
+</suppress>
