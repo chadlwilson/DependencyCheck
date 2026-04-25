@@ -49,7 +49,6 @@ import us.springett.parsers.cpe.values.Part;
 
 import org.sonatype.goodies.packageurl.PackageUrl;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -65,6 +64,8 @@ import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.owasp.dependencycheck.utils.CvssUtil;
 import org.sonatype.goodies.packageurl.InvalidException;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * Enrich dependency information from Sonatype OSS index.
@@ -260,14 +261,16 @@ public class OssIndexAnalyzer extends AbstractAnalyzer {
      * @throws Exception thrown if there is an exception requesting the report
      */
     private Map<PackageUrl, ComponentReport> requestReports(final Dependency[] dependencies) throws Exception {
-        LOG.debug("Requesting component-reports for {} dependencies", dependencies.length);
         // create requests for each dependency which has a PURL identifier
-        final List<PackageUrl> packages = new ArrayList<>();
-        Arrays.stream(dependencies).forEach(dependency -> dependency.getSoftwareIdentifiers().stream()
+        final List<PackageUrl> packages = Arrays.stream(dependencies)
+                .flatMap(dependency -> dependency.getSoftwareIdentifiers().stream())
                 .filter(id -> id instanceof PurlIdentifier)
                 .map(id -> parsePackageUrl(id.getValue()))
                 .filter(id -> id != null && StringUtils.isNotBlank(id.getVersion()))
-                .forEach(packages::add));
+                .distinct()
+                .collect(toList());
+
+        LOG.debug("Requesting component-reports for {} dependencies with {} unique Package-URL identifiers", dependencies.length, packages.size());
         // only attempt if we have been able to collect some packages
         if (!packages.isEmpty()) {
             try (OssindexClient client = newOssIndexClient()) {
