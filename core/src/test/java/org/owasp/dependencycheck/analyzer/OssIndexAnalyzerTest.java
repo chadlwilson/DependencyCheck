@@ -1,10 +1,17 @@
 package org.owasp.dependencycheck.analyzer;
 
+import org.apache.hc.core5.http.HttpStatus;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.MockedStatic;
 import org.owasp.dependencycheck.BaseTest;
 import org.owasp.dependencycheck.Engine;
 import org.owasp.dependencycheck.analyzer.exception.AnalysisException;
+import org.owasp.dependencycheck.data.ossindex.OssindexClientFactory;
 import org.owasp.dependencycheck.dependency.Confidence;
 import org.owasp.dependencycheck.dependency.Dependency;
 import org.owasp.dependencycheck.dependency.naming.Identifier;
@@ -27,172 +34,91 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.Stream;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 class OssIndexAnalyzerTest extends BaseTest {
 
     @Nested
     class Analyze {
-        @Test
-        void should_enrich_be_included_in_mutex_to_prevent_NPE()
-                throws Exception {
+        private OssIndexAnalyzer analyzer;
 
-            // Given
-            SproutOssIndexAnalyzer analyzer = new SproutOssIndexAnalyzer();
-
-            Identifier identifier = new PurlIdentifier("maven", "test", "test", "1.0",
-                    Confidence.HIGHEST);
-
-            Dependency dependency = new Dependency();
-            dependency.addSoftwareIdentifier(identifier);
-            Settings settings = getSettings();
-            setSonatypeGuideCredentials(settings);
-            Engine engine = new Engine(settings);
-            engine.setDependencies(Collections.singletonList(dependency));
-
-            analyzer.initialize(settings);
-            analyzer.prepareAnalyzer(engine);
-
-            String expectedOutput = "https://guide.sonatype.com/component/maven/test%3Atest/1.0";
-
-            // When
-            analyzer.analyzeDependency(dependency, engine);
-
-            // Then
-            assertTrue(identifier.getUrl().startsWith(expectedOutput));
-            analyzer.awaitPendingClosure();
+        @BeforeEach
+        public void setUp() {
+            analyzer = new OssIndexAnalyzer();
         }
 
-
-        @Test
-        void should_return_a_dedicated_error_message_when_401_response_from_sonatype() throws Exception {
-            // Given
-            OssIndexAnalyzer analyzer = new OssIndexAnalyzer();
-            Settings settings = getSettings();
-            setSonatypeGuideCredentials(settings);
-            settings.setBoolean(KEYS.ANALYZER_OSSINDEX_USE_CACHE, false);
-            try (Engine engine = new Engine(settings)) {
-
-                analyzer.initialize(settings);
-                analyzer.prepareAnalyzer(engine);
-
-                Identifier identifier = new PurlIdentifier("maven", "test", "test", "1.0",
-                        Confidence.HIGHEST);
-
-                Dependency dependency = new Dependency();
-                dependency.addSoftwareIdentifier(identifier);
-                engine.setDependencies(Collections.singletonList(dependency));
-
-                // When
-                AnalysisException output = new AnalysisException();
-                try {
-                    analyzer.analyzeDependency(dependency, engine);
-                } catch (AnalysisException e) {
-                    output = e;
-                }
-
-                // Then
-                assertEquals("Invalid credentials provided for Sonatype OSS Index / Guide", output.getMessage());
-                analyzer.close();
-            }
-        }
-
-        @Test
-        void should_return_a_dedicated_error_message_when_403_response_from_sonatype() throws Exception {
-            // Given
-            OssIndexAnalyzer analyzer = new OssIndexAnalyzerThrowing403();
-            Settings settings = getSettings();
-            setSonatypeGuideCredentials(settings);
-            Engine engine = new Engine(settings);
-
-            analyzer.initialize(settings);
-            analyzer.prepareAnalyzer(engine);
-
-            Identifier identifier = new PurlIdentifier("maven", "test", "test", "1.0",
-                    Confidence.HIGHEST);
-
-            Dependency dependency = new Dependency();
-            dependency.addSoftwareIdentifier(identifier);
-            engine.setDependencies(Collections.singletonList(dependency));
-
-            // When
-            AnalysisException output = new AnalysisException();
-            try {
-                analyzer.analyzeDependency(dependency, engine);
-            } catch (AnalysisException e) {
-                output = e;
-            }
-
-            // Then
-            assertEquals("Sonatype OSS Index / Guide access forbidden", output.getMessage());
+        @AfterEach
+        public void tearDown() throws Exception {
             analyzer.close();
         }
 
         @Test
-        void should_only_warn_when_transport_error_from_sonatype() throws Exception {
-            // Given
-            OssIndexAnalyzer analyzer = new OssIndexAnalyzerThrowing502();
+        void should_enrich_be_included_in_mutex_to_prevent_NPE() throws Exception {
+
+            ClosedDuringEnrichOssIndexAnalyzer analyzer = new ClosedDuringEnrichOssIndexAnalyzer();
+
             Settings settings = getSettings();
             setSonatypeGuideCredentials(settings);
-            settings.setBoolean(Settings.KEYS.ANALYZER_OSSINDEX_WARN_ONLY_ON_REMOTE_ERRORS, true);
-            Engine engine = new Engine(settings);
 
+            Engine engine = new Engine(settings);
             analyzer.initialize(settings);
             analyzer.prepareAnalyzer(engine);
+            Dependency dependency = addTestDependencyTo(engine);
 
-            Identifier identifier = new PurlIdentifier("maven", "test", "test", "1.0",
-                    Confidence.HIGHEST);
+            Identifier toEnrich = dependency.getSoftwareIdentifiers().stream().findFirst().orElseThrow();
+            // When
+            try (engine; var ignored = withClientCreation(new SingleOkReportOssIndexClient())) {
+                analyzer.analyzeDependency(dependency, engine);
+            }
+            assertThat(toEnrich.getUrl(), startsWith("https://guide.sonatype.com/component/maven/test%3Atest/1.0"));
 
-            Dependency dependency = new Dependency();
-            dependency.addSoftwareIdentifier(identifier);
+            analyzer.awaitPendingClosure();
+        }
+
+        @ParameterizedTest
+        @MethodSource("org.owasp.dependencycheck.analyzer.OssIndexAnalyzerTest#handledErrorsPlusAnother")
+        void should_return_a_dedicated_error_messages_for_responses_where_possible(Map.Entry<Integer, String> statusCodeToDedicatedMessage) throws Exception {
+            // Given
+            Settings settings = getSettings();
+            setSonatypeGuideCredentials(settings);
+            settings.setBoolean(KEYS.ANALYZER_OSSINDEX_USE_CACHE, false);
+
+            Engine engine = new Engine(settings);
+            analyzer.initialize(settings);
+            analyzer.prepareAnalyzer(engine);
+            Dependency dependency = addTestDependencyTo(engine);
 
             // When
-            try (engine) {
-                engine.setDependencies(Collections.singletonList(dependency));
+            try (engine; var ignored = withClientCreation(throwingOssIndex(new Transport.TransportException("Unexpected response; status: " + statusCodeToDedicatedMessage.getKey())))) {
+                Throwable e = assertThrows(AnalysisException.class, () -> analyzer.analyzeDependency(dependency, engine));
+                assertThat(e.getMessage(), containsString("Sonatype OSS Index / Guide " + statusCodeToDedicatedMessage.getValue()));
+                assertFalse(analyzer.isEnabled());
+
+                analyzer.setEnabled(true);
+                settings.setBoolean(Settings.KEYS.ANALYZER_OSSINDEX_WARN_ONLY_ON_REMOTE_ERRORS, true);
+                analyzer.initialize(settings);
                 assertDoesNotThrow(() -> analyzer.analyzeDependency(dependency, engine),
                         "Analysis exception thrown upon remote error although only a warning should have been logged");
-            } finally {
-                analyzer.close();
+                assertFalse(analyzer.isEnabled());
             }
         }
 
         @Test
-        void should_only_warn_when_socket_error_from_sonatype() throws Exception {
+        void should_return_a_dedicated_error_for_socket_timeouts() throws Exception {
             // Given
-            OssIndexAnalyzer analyzer = new OssIndexAnalyzerThrowingSocketTimeout();
-            Settings settings = getSettings();
-            setSonatypeGuideCredentials(settings);
-            settings.setBoolean(Settings.KEYS.ANALYZER_OSSINDEX_WARN_ONLY_ON_REMOTE_ERRORS, true);
-            analyzer.initialize(settings);
-
-            Engine engine = new Engine(settings);
-            analyzer.prepareAnalyzer(engine);
-
-            Identifier identifier = new PurlIdentifier("maven", "test", "test", "1.0",
-                    Confidence.HIGHEST);
-
-            Dependency dependency = new Dependency();
-            dependency.addSoftwareIdentifier(identifier);
-
-            // When
-            try (engine) {
-                engine.setDependencies(Collections.singletonList(dependency));
-                assertDoesNotThrow(() -> analyzer.analyzeDependency(dependency, engine),
-                        "Analysis exception thrown upon remote error although only a warning should have been logged");
-            } finally {
-                analyzer.close();
-            }
-        }
-
-
-        @Test
-        void should_fail_when_socket_error_from_sonatype() throws Exception {
-            // Given
-            OssIndexAnalyzer analyzer = new OssIndexAnalyzerThrowingSocketTimeout();
             Settings settings = getSettings();
             setSonatypeGuideCredentials(settings);
             settings.setBoolean(Settings.KEYS.ANALYZER_OSSINDEX_WARN_ONLY_ON_REMOTE_ERRORS, false);
@@ -201,25 +127,36 @@ class OssIndexAnalyzerTest extends BaseTest {
             analyzer.initialize(settings);
             analyzer.prepareAnalyzer(engine);
 
-            Identifier identifier = new PurlIdentifier("maven", "test", "test", "1.0",
-                    Confidence.HIGHEST);
-
-            Dependency dependency = new Dependency();
-            dependency.addSoftwareIdentifier(identifier);
-            engine.setDependencies(Collections.singletonList(dependency));
+            Dependency dependency = addTestDependencyTo(engine);
 
             // When
-            AnalysisException output = new AnalysisException();
-            try {
-                analyzer.analyzeDependency(dependency, engine);
-            } catch (AnalysisException e) {
-                output = e;
-            }
+            try (engine; var ignored = withClientCreation(throwingOssIndex(new SocketTimeoutException("Read timed out")))) {
+                Throwable e = assertThrows(AnalysisException.class, () -> analyzer.analyzeDependency(dependency, engine));
+                assertThat(e.getMessage(), is("Failed to establish socket to Sonatype OSS Index / Guide"));
+                assertFalse(analyzer.isEnabled());
 
-            // Then
-            assertEquals("Failed to establish socket to Sonatype OSS Index / Guide", output.getMessage());
-            analyzer.close();
+                analyzer.setEnabled(true);
+                settings.setBoolean(Settings.KEYS.ANALYZER_OSSINDEX_WARN_ONLY_ON_REMOTE_ERRORS, true);
+                analyzer.initialize(settings);
+                assertDoesNotThrow(() -> analyzer.analyzeDependency(dependency, engine),
+                        "Analysis exception thrown upon remote error although only a warning should have been logged");
+                assertFalse(analyzer.isEnabled());
+            }
         }
+    }
+
+    @SuppressWarnings("resource")
+    private static MockedStatic<OssindexClientFactory> withClientCreation(OssindexClient client) {
+        MockedStatic<OssindexClientFactory> mockedClient = mockStatic(OssindexClientFactory.class);
+        mockedClient.when(() -> OssindexClientFactory.create(any())).thenReturn(client);
+        return mockedClient;
+    }
+
+    private static Dependency addTestDependencyTo(Engine engine) throws Exception {
+        Dependency dependency = new Dependency();
+        dependency.addSoftwareIdentifier(new PurlIdentifier("maven", "test", "test", "1.0", Confidence.HIGHEST));
+        engine.setDependencies(Collections.singletonList(dependency));
+        return dependency;
     }
 
     @Nested
@@ -320,24 +257,19 @@ class OssIndexAnalyzerTest extends BaseTest {
      *
      * The last method access data from the "reports" field while
      * closeAnalyzer() erase the reference. If enrich() is not included in
-     * the "FETCH_MUTIX" synchronized statement, we can trigger a
-     * NullPointeException in a multithreaded environment, which can happen
+     * the "FETCH_MUTEX" synchronized statement, we can trigger a
+     * NullPointerException in a multithreaded environment, which can happen
      * due to the usage of java.util.concurrent.Future.
      *
      * We want to make sure enrich() will be able to set the url of an
      * identifier and enrich it.
      */
-    static final class SproutOssIndexAnalyzer extends OssIndexAnalyzer {
+    private static final class ClosedDuringEnrichOssIndexAnalyzer extends OssIndexAnalyzer {
         private Future<?> pendingClosureTask;
 
         @Override
-        OssindexClient newOssIndexClient() {
-            return new OssIndexClientOk();
-        }
-
-        @Override
         void enrich(Dependency dependency) {
-            ExecutorService executor = Executors.newSingleThreadExecutor();
+            @SuppressWarnings("resource") ExecutorService executor = Executors.newSingleThreadExecutor();
             pendingClosureTask = executor.submit(() -> {
                 try {
                     this.closeAnalyzer();
@@ -354,102 +286,38 @@ class OssIndexAnalyzerTest extends BaseTest {
         }
     }
 
-    private static final class OssIndexClientOk implements OssindexClient {
-
+    private static final class SingleOkReportOssIndexClient implements OssindexClient {
         @Override
         public Map<PackageUrl, ComponentReport> requestComponentReports(List<PackageUrl> coordinates) throws Exception {
             HashMap<PackageUrl, ComponentReport> reports = new HashMap<>();
-            ComponentReport report = new ComponentReport();
-            PackageUrl packageUrl = coordinates.get(0);
-            report.setCoordinates(packageUrl);
-            report.setReference(new URI("https://guide.sonatype.com/component/maven/test%3Atest/1.0"));
-            reports.put(packageUrl, report);
+            ComponentReport report = requestComponentReport(coordinates.get(0));
+            reports.put(report.getCoordinates(), report);
             return reports;
         }
 
         @Override
         public ComponentReport requestComponentReport(PackageUrl coordinates) throws Exception {
-            return new ComponentReport();
+            ComponentReport report = new ComponentReport();
+            report.setCoordinates(coordinates);
+            report.setReference(new URI("https://guide.sonatype.com/component/maven/test%3Atest/1.0"));
+            return report;
         }
 
         @Override
-        public void close() {
-
-        }
+        public void close() {}
     }
 
-    private static final class OssIndexAnalyzerThrowing403 extends OssIndexAnalyzer {
-        @Override
-        OssindexClient newOssIndexClient() {
-            return new OssIndexClient403();
-        }
+    private static OssindexClient throwingOssIndex(Exception exception1) throws Exception {
+        OssindexClient client = mock(OssindexClient.class);
+        when(client.requestComponentReport(any())).thenThrow(exception1);
+        when(client.requestComponentReports(any())).thenThrow(exception1);
+        return client;
     }
 
-    private static final class OssIndexClient403 implements OssindexClient {
-
-        @Override
-        public Map<PackageUrl, ComponentReport> requestComponentReports(List<PackageUrl> coordinates) throws Exception {
-            throw new Transport.TransportException("Unexpected response; status: 403");
-        }
-
-        @Override
-        public ComponentReport requestComponentReport(PackageUrl coordinates) throws Exception {
-            throw new Transport.TransportException("Unexpected response; status: 403");
-        }
-
-        @Override
-        public void close() {
-
-        }
-    }
-
-    private static final class OssIndexAnalyzerThrowing502 extends OssIndexAnalyzer {
-        @Override
-        OssindexClient newOssIndexClient() {
-            return new OssIndexClient502();
-        }
-    }
-
-    private static final class OssIndexClient502 implements OssindexClient {
-
-        @Override
-        public Map<PackageUrl, ComponentReport> requestComponentReports(List<PackageUrl> coordinates) throws Exception {
-            throw new Transport.TransportException("Unexpected response; status: 502");
-        }
-
-        @Override
-        public ComponentReport requestComponentReport(PackageUrl coordinates) throws Exception {
-            throw new Transport.TransportException("Unexpected response; status: 502");
-        }
-
-        @Override
-        public void close() {
-
-        }
-    }
-
-    private static final class OssIndexAnalyzerThrowingSocketTimeout extends OssIndexAnalyzer {
-        @Override
-        OssindexClient newOssIndexClient() {
-            return new OssIndexClientSocketTimeoutException();
-        }
-    }
-
-    private static final class OssIndexClientSocketTimeoutException implements OssindexClient {
-
-        @Override
-        public Map<PackageUrl, ComponentReport> requestComponentReports(List<PackageUrl> coordinates) throws Exception {
-            throw new SocketTimeoutException("Read timed out");
-        }
-
-        @Override
-        public ComponentReport requestComponentReport(PackageUrl coordinates) throws Exception {
-            throw new SocketTimeoutException("Read timed out");
-        }
-
-        @Override
-        public void close() {
-
-        }
+    static Stream<Map.Entry<Integer, String>> handledErrorsPlusAnother() {
+        return Stream.concat(
+                OssIndexAnalyzer.OSSINDEX_KNOWN_USER_ERRORS.entrySet().stream(),
+                Stream.of(Map.entry(HttpStatus.SC_INTERNAL_SERVER_ERROR, "request had unknown fatal error"))
+        );
     }
 }

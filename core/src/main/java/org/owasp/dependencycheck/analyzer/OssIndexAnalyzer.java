@@ -20,7 +20,6 @@ package org.owasp.dependencycheck.analyzer;
 import io.github.jeremylong.openvulnerability.client.nvd.CvssV2;
 import io.github.jeremylong.openvulnerability.client.nvd.CvssV2Data;
 import io.github.jeremylong.openvulnerability.client.nvd.CvssV4;
-import org.apache.commons.lang3.Strings;
 import org.jspecify.annotations.NonNull;
 import org.sonatype.ossindex.service.api.componentreport.ComponentReport;
 import org.sonatype.ossindex.service.api.componentreport.ComponentReportVulnerability;
@@ -66,6 +65,10 @@ import org.owasp.dependencycheck.utils.CvssUtil;
 import org.sonatype.goodies.packageurl.InvalidException;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.hc.core5.http.HttpStatus.SC_FORBIDDEN;
+import static org.apache.hc.core5.http.HttpStatus.SC_PAYMENT_REQUIRED;
+import static org.apache.hc.core5.http.HttpStatus.SC_TOO_MANY_REQUESTS;
+import static org.apache.hc.core5.http.HttpStatus.SC_UNAUTHORIZED;
 
 /**
  * Enrich dependency information from Sonatype OSS index.
@@ -98,7 +101,17 @@ public class OssIndexAnalyzer extends AbstractAnalyzer {
     /**
      * Lock to protect fetching state.
      */
-    private static final Object FETCH_MUTIX = new Object();
+    private static final Object FETCH_MUTEX = new Object();
+
+    /**
+     * Known mappings of HTTP error codes to user messages
+     */
+    static final Map<Integer, String> OSSINDEX_KNOWN_USER_ERRORS = Map.of(
+            SC_UNAUTHORIZED, "has invalid credentials",
+            SC_FORBIDDEN, "access forbidden",
+            SC_TOO_MANY_REQUESTS, "rate limit exceeded",
+            SC_PAYMENT_REQUIRED, "credits insufficient / payment required"
+    );
 
     @Override
     public String getName() {
@@ -127,14 +140,14 @@ public class OssIndexAnalyzer extends AbstractAnalyzer {
 
     @Override
     protected void closeAnalyzer() throws Exception {
-        synchronized (FETCH_MUTIX) {
+        synchronized (FETCH_MUTEX) {
             reports = null;
         }
     }
 
     @Override
     protected void prepareAnalyzer(Engine engine) throws InitializationException {
-        synchronized (FETCH_MUTIX) {
+        synchronized (FETCH_MUTEX) {
             if (getSettings().getString(KEYS.ANALYZER_OSSINDEX_URL, "").contains("ossindex.sonatype.org")) {
                 LOG.warn("{} capabilities are being migrated to Sonatype Guide. All integrations must migrate to using " +
                         "a Sonatype Guide base URL or proxy. See " +
@@ -170,7 +183,7 @@ public class OssIndexAnalyzer extends AbstractAnalyzer {
     @Override
     protected void analyzeDependency(final Dependency dependency, final Engine engine) throws AnalysisException {
         // batch request component-reports for all dependencies
-        synchronized (FETCH_MUTIX) {
+        synchronized (FETCH_MUTEX) {
             if (reports == null) {
                 try {
                     requestDelay();
@@ -181,38 +194,21 @@ public class OssIndexAnalyzer extends AbstractAnalyzer {
                     if (warnOnly) {
                         LOG.warn("Sonatype OSS Index / Guide socket timeout, disabling the analyzer", e);
                     } else {
-                        LOG.debug("Sonatype OSS Index / Guide socket timeout", e);
                         throw new AnalysisException("Failed to establish socket to Sonatype OSS Index / Guide", e);
                     }
                 } catch (Exception ex) {
-                    final String message = ex.getMessage();
-                    final boolean warnOnly = getSettings().getBoolean(Settings.KEYS.ANALYZER_OSSINDEX_WARN_ONLY_ON_REMOTE_ERRORS, false);
                     this.setEnabled(false);
-                    if (Strings.CS.contains(message, "401")) {
-                        if (warnOnly) {
-                            LOG.warn("Invalid credentials for Sonatype OSS Index / Guide, disabling the analyzer");
-                        } else {
-                            LOG.error("Invalid credentials for Sonatype OSS Index / Guide, disabling the analyzer");
-                            throw new AnalysisException("Invalid credentials provided for Sonatype OSS Index / Guide", ex);
-                        }
-                    } else if (Strings.CS.contains(message, "403")) {
-                        if (warnOnly) {
-                            LOG.warn("Sonatype OSS Index / Guide access forbidden, disabling the analyzer");
-                        } else {
-                            LOG.error("Sonatype OSS Index / Guide access forbidden, disabling the analyzer");
-                            throw new AnalysisException("Sonatype OSS Index / Guide access forbidden", ex);
-                        }
-                    } else if (Strings.CS.contains(message, "429")) {
-                        if (warnOnly) {
-                            LOG.warn("Sonatype OSS Index / Guide rate limit exceeded, disabling the analyzer", ex);
-                        } else {
-                            throw new AnalysisException("Sonatype OSS Index / Guide rate limit exceeded, disabling the analyzer", ex);
-                        }
-                    } else if (warnOnly) {
-                        LOG.warn("Error requesting Sonatype OSS Index / Guide component reports, disabling the analyzer. {}", ex.getMessage(), ex);
+
+                    String logMessage = OSSINDEX_KNOWN_USER_ERRORS.keySet().stream()
+                            .filter(statusCode -> ex.toString().contains(Integer.toString(statusCode)))
+                            .map(statusCode -> String.format("Sonatype OSS Index / Guide %s, disabling the analyzer.", OSSINDEX_KNOWN_USER_ERRORS.get(statusCode)))
+                            .findFirst()
+                            .orElseGet(() -> String.format("Sonatype OSS Index / Guide request had unknown fatal error, disabling the analyzer. %s", ex.getMessage()));
+
+                    if (getSettings().getBoolean(KEYS.ANALYZER_OSSINDEX_WARN_ONLY_ON_REMOTE_ERRORS, false)) {
+                        LOG.warn(logMessage);
                     } else {
-                        LOG.debug("Error requesting Sonatype OSS Index / Guide component reports, disabling the analyzer", ex);
-                        throw new AnalysisException("Failed to request Sonatype OSS Index / Guide component reports. " + ex.getMessage(), ex);
+                        throw new AnalysisException(logMessage, ex);
                     }
                 }
             }
@@ -273,17 +269,13 @@ public class OssIndexAnalyzer extends AbstractAnalyzer {
         LOG.debug("Requesting component-reports for {} dependencies with {} unique Package-URL identifiers", dependencies.length, packages.size());
         // only attempt if we have been able to collect some packages
         if (!packages.isEmpty()) {
-            try (OssindexClient client = newOssIndexClient()) {
-                LOG.debug("OSS Index Analyzer submitting: " + packages);
+            try (OssindexClient client = OssindexClientFactory.create(getSettings())) {
+                LOG.debug("OSS Index Analyzer submitting: {}", packages);
                 return client.requestComponentReports(packages);
             }
         }
         LOG.warn("Unable to determine Package-URL identifiers for {} dependencies", dependencies.length);
         return Collections.emptyMap();
-    }
-
-    OssindexClient newOssIndexClient() {
-        return OssindexClientFactory.create(getSettings());
     }
 
     /**
