@@ -1278,7 +1278,6 @@ public class Check extends Update {
      *
      * @param ossIndexAnalyzerCacheValidForHours new value of ossIndexAnalyzerCacheValidForHours
      */
-    @Deprecated
     public void setOssIndexAnalyzerCacheValidForHours(Integer ossIndexAnalyzerCacheValidForHours) {
         this.ossIndexAnalyzerCacheValidForHours = ossIndexAnalyzerCacheValidForHours;
     }
