@@ -882,7 +882,8 @@ public final class Settings {
          */
         public static final String ANALYZER_OSSINDEX_USE_CACHE = "analyzer.ossindex.use.cache";
         /**
-         * The properties for how long results from the Sonatype OSS Index should be cached for
+         * The properties key for how long results from the Sonatype OSS Index
+         * should be cached.
          */
         public static final String ANALYZER_OSSINDEX_CACHE_VALID_FOR_HOURS = "analyzer.ossindex.cache.validforhours";
         /**
