@@ -3,7 +3,6 @@ package org.owasp.dependencycheck.data.update;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -126,7 +125,6 @@ class HostedSuppressionsDataSourceTest extends BaseTest {
         }
 
         @Test
-        @Disabled("stale time calculation is broken")
         void doesNothingIfRemoteHostedSuppressionsIsNotStale() throws Exception {
             getSettings().setBoolean(Settings.KEYS.HOSTED_SUPPRESSIONS_ENABLED, true);
             getSettings().setBoolean(Settings.KEYS.AUTO_UPDATE, true);
