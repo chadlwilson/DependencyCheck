@@ -2104,7 +2104,7 @@ only pkg:maven/org.clojure:clojure@.* is the CPE cpe:/a:clojure:clojure
     <cve>CVE-2026-34481</cve>
 </suppress>
 <suppress base="true">
-<notes><![CDATA[
+    <notes><![CDATA[
     hand-curated better suppression FP per issue #1927, #2001, #2109, #2341, #2628, #3427, #4205, #4681, #5506, #6595,
        #6981, #7689, #8184, #8497 (and others)
     These CVEs are all for the golang based server; so exclude for all packages except the golang/github.com/prometheus/prometheus server module.
