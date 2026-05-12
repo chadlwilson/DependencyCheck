@@ -245,13 +245,6 @@
 </suppress>
 <suppress base="true">
     <notes><![CDATA[
-    FP per issue #4681
-    ]]></notes>
-    <packageUrl regex="true">^pkg:maven/com\.amazonaws/aws-java-sdk-prometheus@.*$</packageUrl>
-    <cpe>cpe:/a:prometheus:prometheus</cpe>
-</suppress>
-<suppress base="true">
-    <notes><![CDATA[
     FP per issue #4651
     ]]></notes>
     <packageUrl regex="true">^pkg:maven/org\.hibernate/hibernate-commons-annotations@.*$</packageUrl>
@@ -460,13 +453,6 @@
     ]]></notes>
     <packageUrl regex="true">^pkg:maven/com\.github\.luben/zstd-jni@.*$</packageUrl>
     <cpe>cpe:/a:freebsd:freebsd</cpe>
-</suppress>
-<suppress base="true">
-    <notes><![CDATA[
-    FP per issue #5506
-    ]]></notes>
-    <packageUrl regex="true">^pkg:maven/io\.kamon/kamon-prometheus_2\.13@.*$</packageUrl>
-    <cpe>cpe:/a:prometheus:prometheus</cpe>
 </suppress>
 <suppress base="true">
     <notes><![CDATA[
@@ -954,13 +940,6 @@
 </suppress>
 <suppress base="true">
     <notes><![CDATA[
-    FP per issue #6595
-    ]]></notes>
-    <packageUrl regex="true">^pkg:maven/io\.opentelemetry\.contrib/opentelemetry-prometheus-client-bridge@.*$</packageUrl>
-    <cpe>cpe:/a:prometheus:prometheus</cpe>
-</suppress>
-<suppress base="true">
-    <notes><![CDATA[
     FP per issue #6613
     ]]></notes>
     <packageUrl regex="true">^pkg:maven/org\.springframework\.batch\.extensions/spring-batch-excel@.*$</packageUrl>
@@ -1237,15 +1216,6 @@ only pkg:maven/org.clojure:clojure@.* is the CPE cpe:/a:clojure:clojure
     ]]></notes>
 <packageUrl regex="true">^pkg:maven/org\.apache\.ftpserver/ftplet-api@.*$</packageUrl>
 <cpe regex="true">^cpe:/a:apache:mina:.*</cpe>
-</suppress>
-<suppress base="true">
-<notes><![CDATA[
-    FP per issue #6981 - manual addition prometheus java_client libraries
-    seen as the prometheus server, but they would receive product client_java
-    (no CPE yet, but observed from the existing CPE for the go client client_go)
-    ]]></notes>
-<packageUrl regex="true">^pkg:maven/io\.prometheus/prometheus-.*$</packageUrl>
-<cpe>cpe:/a:prometheus:prometheus</cpe>
 </suppress>
 <suppress base="true">
     <notes><![CDATA[
@@ -1692,13 +1662,6 @@ only pkg:maven/org.clojure:clojure@.* is the CPE cpe:/a:clojure:clojure
 </suppress>
 <suppress base="true">
     <notes><![CDATA[
-    FP per issue #7689
-    ]]></notes>
-    <packageUrl regex="true">^pkg:maven/io\.micrometer/micrometer-registry-prometheus-simpleclient@.*$</packageUrl>
-    <cpe>cpe:/a:prometheus:prometheus</cpe>
-</suppress>
-<suppress base="true">
-    <notes><![CDATA[
     FP per issue #7715
     ]]></notes>
     <packageUrl regex="true">^pkg:maven/opensymphony/oscache@.*$</packageUrl>
@@ -1956,13 +1919,6 @@ only pkg:maven/org.clojure:clojure@.* is the CPE cpe:/a:clojure:clojure
 </suppress>
 <suppress base="true">
     <notes><![CDATA[
-    FP per issue #8184
-    ]]></notes>
-    <packageUrl regex="true">^pkg:maven/io\.opentelemetry/opentelemetry-exporter-prometheus@.*$</packageUrl>
-    <cpe>cpe:/a:prometheus:prometheus</cpe>
-</suppress>
-<suppress base="true">
-    <notes><![CDATA[
     FP per issue #7869
     ]]></notes>
     <packageUrl regex="true">^pkg:maven/com\.solace/solace-messaging-client@.*$</packageUrl>
@@ -2148,9 +2104,14 @@ only pkg:maven/org.clojure:clojure@.* is the CPE cpe:/a:clojure:clojure
     <cve>CVE-2026-34481</cve>
 </suppress>
 <suppress base="true">
-    <notes><![CDATA[
-    FP per issue #8497
+<notes><![CDATA[
+    hand-curated better suppression FP per issue #1927, #2001, #2109, #2341, #2628, #3427, #4205, #4681, #5506, #6595,
+       #6981, #7689, #8184, #8497 (and others)
+    These CVEs are all for the golang based server; so exclude for all packages except the golang/github.com/prometheus/prometheus server module.
+    Other prometheus CVEs in other components have their own CPE. The ones being suppressed here can be reviewed at
+    - https://github.com/prometheus/prometheus/security
+    - https://nvd.nist.gov/vuln/search#/nvd/home?cpeFilterMode=applicability&cpeName=cpe:2.3:a:prometheus:prometheus:*:*:*:*:*:*:*:*&resultType=records
     ]]></notes>
-    <packageUrl regex="true">^pkg:maven/io\.micrometer/micrometer-registry-prometheus@.*$</packageUrl>
-    <cpe>cpe:/a:prometheus:prometheus</cpe>
+    <packageUrl regex="true">^pkg:(?!golang/github\.com/prometheus/prometheus).*$</packageUrl>
+    <cpe>cpe:/a:prometheus:prometheus:</cpe>
 </suppress>
