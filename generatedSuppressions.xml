@@ -2136,3 +2136,11 @@ only pkg:maven/org.clojure:clojure@.* is the CPE cpe:/a:clojure:clojure
     <packageUrl regex="true">^pkg:(?!golang/github\.com/prometheus/prometheus).*$</packageUrl>
     <cpe>cpe:/a:prometheus:prometheus:</cpe>
 </suppress>
+
+<suppress base="true">
+    <notes><![CDATA[
+    FP per issue #8508
+    ]]></notes>
+    <packageUrl regex="true">^pkg:maven/net\.sf\.saxon/Saxon-HE@.*$</packageUrl>
+    <cpe>cpe:/a:kay_framework_project:kay_framework</cpe>
+</suppress>
