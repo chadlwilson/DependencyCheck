@@ -1796,7 +1796,7 @@
     <notes><![CDATA[
     FP per issues #3876, #7998
     ]]></notes>
-    <packageUrl regex="true">^pkg:maven/co\.elastic\.apm/(:.*)?$</packageUrl>
+    <packageUrl regex="true">^pkg:maven/co\.elastic\.apm/.*</packageUrl>
     <cpe regex="true">cpe:/a:elastic:elastic_agent(:.*)?$</cpe>
     <cve>CVE-2019-7617</cve>
 </suppress>
@@ -1912,7 +1912,7 @@
     <notes><![CDATA[
     FP per issue #8243, #8244, #8247, #8249
     ]]></notes>
-    <packageUrl regex="true">^pkg:(?!maven/nu\.validator/validator@|npm/vnu-jar)(:.*)?$</packageUrl>
+    <packageUrl regex="true">^pkg:(?!maven/nu\.validator/validator@|npm/vnu-jar).*</packageUrl>
     <cpe regex="true">cpe:/a:validator:validator(:.*)?$</cpe>
 </suppress>
 <suppress base="true">
