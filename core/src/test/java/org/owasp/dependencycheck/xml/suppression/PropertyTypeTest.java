@@ -20,8 +20,10 @@ package org.owasp.dependencycheck.xml.suppression;
 import org.junit.jupiter.api.Test;
 import org.owasp.dependencycheck.BaseTest;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.util.regex.PatternSyntaxException;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -31,57 +33,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PropertyTypeTest extends BaseTest {
 
     /**
-     * Test of set and getValue method, of class PropertyType.
-     */
-    @Test
-    void testSetGetValue() {
-
-        PropertyType instance = new PropertyType();
-        String expResult = "test";
-        instance.setValue(expResult);
-        String result = instance.getValue();
-        assertEquals(expResult, result);
-    }
-
-    /**
-     * Test of isRegex method, of class PropertyType.
-     */
-    @Test
-    void testIsRegex() {
-        PropertyType instance = new PropertyType();
-        assertFalse(instance.isRegex());
-        instance.setRegex(true);
-        assertTrue(instance.isRegex());
-    }
-
-    /**
-     * Test of isCaseSensitive method, of class PropertyType.
-     */
-    @Test
-    void testIsCaseSensitive() {
-        PropertyType instance = new PropertyType();
-        assertFalse(instance.isCaseSensitive());
-        instance.setCaseSensitive(true);
-        assertTrue(instance.isCaseSensitive());
-    }
-
-    /**
      * Test of matches method, of class PropertyType.
      */
     @Test
     void testMatches() {
         String text = "Simple";
+        assertTrue(new PropertyType("simple").matches(text));
+        assertFalse(new PropertyType("simple", false, true).matches(text));
+    }
 
-        PropertyType instance = new PropertyType();
-        instance.setValue("simple");
-        assertTrue(instance.matches(text));
-        instance.setCaseSensitive(true);
-        assertFalse(instance.matches(text));
+    @Test
+    void testMatchesRegex() {
+        String text = "Simple";
+        assertTrue(new PropertyType("s.*le", true, false).matches(text));
+        assertFalse(new PropertyType("s.*le", true, true).matches(text));
+    }
 
-        instance.setValue("s.*le");
-        instance.setRegex(true);
-        assertFalse(instance.matches(text));
-        instance.setCaseSensitive(false);
-        assertTrue(instance.matches(text));
+    @Test
+    void testMatchesRegexRethrowsCompilationIssue() {
+        assertThrowsExactly(PatternSyntaxException.class, () -> new PropertyType("(badregex", true, false).matches("anything"));
+        assertThrowsExactly(PatternSyntaxException.class, () -> new PropertyType("(badregex", true, true).matches("anything"));
     }
 }
