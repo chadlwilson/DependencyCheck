@@ -82,6 +82,8 @@ public abstract class AbstractSuppressionAnalyzer extends AbstractAnalyzer {
      */
     public static final String SUPPRESSION_OBJECT_KEY = "suppression.rules";
 
+    private static final Pattern PATTERN_URI_IS_RETRIEVABLE = Pattern.compile("^(https?|file):.*", Pattern.CASE_INSENSITIVE);
+
     /**
      * The prepare method loads the suppression XML file.
      *
@@ -333,8 +335,7 @@ public abstract class AbstractSuppressionAnalyzer extends AbstractAnalyzer {
         File file = null;
         boolean deleteTempFile = false;
         try {
-            final Pattern uriRx = Pattern.compile("^(https?|file):.*", Pattern.CASE_INSENSITIVE);
-            if (uriRx.matcher(suppressionFilePath).matches()) {
+            if (PATTERN_URI_IS_RETRIEVABLE.matcher(suppressionFilePath).matches()) {
                 deleteTempFile = true;
                 file = getSettings().getTempFile("suppression", "xml");
                 final URL url = new URL(suppressionFilePath);

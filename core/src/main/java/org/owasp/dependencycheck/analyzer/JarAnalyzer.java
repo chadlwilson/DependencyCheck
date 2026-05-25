@@ -22,6 +22,30 @@ import com.github.packageurl.PackageURL;
 import com.github.packageurl.PackageURLBuilder;
 import com.google.common.base.Strings;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.jsoup.Jsoup;
+import org.owasp.dependencycheck.Engine;
+import org.owasp.dependencycheck.analyzer.exception.AnalysisException;
+import org.owasp.dependencycheck.data.nvd.ecosystem.Ecosystem;
+import org.owasp.dependencycheck.dependency.Confidence;
+import org.owasp.dependencycheck.dependency.Dependency;
+import org.owasp.dependencycheck.dependency.EvidenceType;
+import org.owasp.dependencycheck.dependency.naming.GenericIdentifier;
+import org.owasp.dependencycheck.dependency.naming.Identifier;
+import org.owasp.dependencycheck.dependency.naming.PurlIdentifier;
+import org.owasp.dependencycheck.exception.InitializationException;
+import org.owasp.dependencycheck.utils.FileFilterBuilder;
+import org.owasp.dependencycheck.utils.FileUtils;
+import org.owasp.dependencycheck.utils.Settings;
+import org.owasp.dependencycheck.xml.pom.Developer;
+import org.owasp.dependencycheck.xml.pom.License;
+import org.owasp.dependencycheck.xml.pom.Model;
+import org.owasp.dependencycheck.xml.pom.PomUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
@@ -51,30 +75,6 @@ import java.util.jar.Manifest;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 
-import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.io.IOUtils;
-import org.jsoup.Jsoup;
-import org.owasp.dependencycheck.Engine;
-import org.owasp.dependencycheck.analyzer.exception.AnalysisException;
-import org.owasp.dependencycheck.data.nvd.ecosystem.Ecosystem;
-import org.owasp.dependencycheck.dependency.Confidence;
-import org.owasp.dependencycheck.dependency.Dependency;
-import org.owasp.dependencycheck.dependency.EvidenceType;
-import org.owasp.dependencycheck.dependency.naming.GenericIdentifier;
-import org.owasp.dependencycheck.dependency.naming.Identifier;
-import org.owasp.dependencycheck.dependency.naming.PurlIdentifier;
-import org.owasp.dependencycheck.exception.InitializationException;
-import org.owasp.dependencycheck.utils.FileFilterBuilder;
-import org.owasp.dependencycheck.utils.FileUtils;
-import org.owasp.dependencycheck.utils.Settings;
-import org.owasp.dependencycheck.xml.pom.Developer;
-import org.owasp.dependencycheck.xml.pom.License;
-import org.owasp.dependencycheck.xml.pom.Model;
-import org.owasp.dependencycheck.xml.pom.PomUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * Used to load a JAR file and collect information that can be used to determine
  * the associated CPE.
@@ -89,10 +89,12 @@ public class JarAnalyzer extends AbstractFileTypeAnalyzer {
      * analyzer.
      */
     public static final String DEPENDENCY_ECOSYSTEM = Ecosystem.JAVA;
+
     /**
      * The logger.
      */
     private static final Logger LOGGER = LoggerFactory.getLogger(JarAnalyzer.class);
+    private static final Pattern PATTERN_MANIFEST_VALUE_IS_PACKAGE = Pattern.compile("^(\\s*[a-zA-Z0-9_#$*.]+\\s*[,;])+(\\s*[a-zA-Z0-9_#$*.]+\\s*)?$");
     /**
      * The count of directories created during analysis. This is used for
      * creating temporary directories.
@@ -1153,9 +1155,8 @@ public class JarAnalyzer extends AbstractFileTypeAnalyzer {
      * "import" entry
      */
     private boolean isImportPackage(String key, String value) {
-        final Pattern packageRx = Pattern.compile("^(\\s*[a-zA-Z0-9_#\\$\\*\\.]+\\s*[,;])+(\\s*[a-zA-Z0-9_#\\$\\*\\.]+\\s*)?$");
-        final boolean matches = packageRx.matcher(value).matches();
-        return matches && (key.contains("import") || key.contains("include") || value.length() > 10);
+        return (key.contains("import") || key.contains("include") || value.length() > 10) &&
+                PATTERN_MANIFEST_VALUE_IS_PACKAGE.matcher(value).matches();
     }
 
     /**

@@ -18,16 +18,6 @@
 package org.owasp.dependencycheck.analyzer;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.io.FileFilter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import javax.annotation.concurrent.ThreadSafe;
 import org.owasp.dependencycheck.Engine;
 import org.owasp.dependencycheck.analyzer.exception.AnalysisException;
 import org.owasp.dependencycheck.dependency.Dependency;
@@ -35,7 +25,6 @@ import org.owasp.dependencycheck.dependency.Evidence;
 import org.owasp.dependencycheck.dependency.EvidenceType;
 import org.owasp.dependencycheck.dependency.naming.CpeIdentifier;
 import org.owasp.dependencycheck.dependency.naming.Identifier;
-import org.owasp.dependencycheck.utils.FileFilterBuilder;
 import org.owasp.dependencycheck.utils.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +32,16 @@ import us.springett.parsers.cpe.Cpe;
 import us.springett.parsers.cpe.CpeBuilder;
 import us.springett.parsers.cpe.exceptions.CpeValidationException;
 import us.springett.parsers.cpe.values.Part;
+
+import javax.annotation.concurrent.ThreadSafe;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * This analyzer attempts to remove some well known false positives -
@@ -57,10 +56,6 @@ public class FalsePositiveAnalyzer extends AbstractAnalyzer {
      * The Logger.
      */
     private static final Logger LOGGER = LoggerFactory.getLogger(FalsePositiveAnalyzer.class);
-    /**
-     * The file filter used to find DLL and EXE.
-     */
-    private static final FileFilter DLL_EXE_FILTER = FileFilterBuilder.newInstance().addExtensions("dll", "exe").build();
     /**
      * Regex to identify core java libraries and a few other commonly
      * misidentified ones.
@@ -216,19 +211,18 @@ public class FalsePositiveAnalyzer extends AbstractAnalyzer {
      * @param dependency the dependency to remove JRE CPEs from
      */
     private void removeJreEntries(Dependency dependency) {
-        final Set<Identifier> removalSet = new HashSet<>();
-        dependency.getVulnerableSoftwareIdentifiers().forEach(i -> {
-            final Matcher coreCPE = CORE_JAVA.matcher(i.getValue());
-            final Matcher coreFiles = CORE_FILES.matcher(dependency.getFileName());
-            final Matcher coreJsfCPE = CORE_JAVA_JSF.matcher(i.getValue());
-            final Matcher coreJsfFiles = CORE_JSF_FILES.matcher(dependency.getFileName());
-            if ((coreCPE.matches() && !coreFiles.matches())
-                    || (coreJsfCPE.matches() && !coreJsfFiles.matches())) {
-                removalSet.add(i);
-            }
+        dependency.getVulnerableSoftwareIdentifiers().stream()
+                .filter(i -> isJreFalsePositive(dependency, i) || isJavaServerFacesFalsePositive(dependency, i))
+                .collect(Collectors.toSet())
+                .forEach(dependency::removeVulnerableSoftwareIdentifier);
+    }
 
-        });
-        removalSet.forEach(dependency::removeVulnerableSoftwareIdentifier);
+    private static boolean isJreFalsePositive(Dependency dependency, Identifier i) {
+        return CORE_JAVA.matcher(i.getValue()).matches() && !CORE_FILES.matcher(dependency.getFileName()).matches();
+    }
+
+    private static boolean isJavaServerFacesFalsePositive(Dependency dependency, Identifier i) {
+        return CORE_JAVA_JSF.matcher(i.getValue()).matches() && !CORE_JSF_FILES.matcher(dependency.getFileName()).matches();
     }
 
     /**

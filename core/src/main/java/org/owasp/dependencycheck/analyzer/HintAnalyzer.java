@@ -68,6 +68,7 @@ public class HintAnalyzer extends AbstractAnalyzer {
      * The name of the hint rule file
      */
     private static final String HINT_RULE_FILE_NAME = "dependencycheck-base-hint.xml";
+    private static final Pattern PATTERN_URI_IS_RETRIEVABLE = Pattern.compile("^(https?|file):.*", Pattern.CASE_INSENSITIVE);
     /**
      * The array of hint rules.
      */
@@ -260,8 +261,7 @@ public class HintAnalyzer extends AbstractAnalyzer {
         if (filePath != null) {
             boolean deleteTempFile = false;
             try {
-                final Pattern uriRx = Pattern.compile("^(https?|file):.*", Pattern.CASE_INSENSITIVE);
-                if (uriRx.matcher(filePath).matches()) {
+                if (PATTERN_URI_IS_RETRIEVABLE.matcher(filePath).matches()) {
                     deleteTempFile = true;
                     file = getSettings().getTempFile("hint", "xml");
                     final URL url = new URL(filePath);
