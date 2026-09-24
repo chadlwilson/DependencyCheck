@@ -30,12 +30,11 @@ Copyright (c) 2013 Jeremy Long. All Rights Reserved.
     <properties>
         <maven.api.version>3.8.1</maven.api.version>
 
-        <version.maven-plugin-plugin>3.15.2</version.maven-plugin-plugin>
         <toolchain.jdk.test.home>${java.home}</toolchain.jdk.test.home>
     </properties>
     <scm>
-        <connection>scm:git:https://github.com/dependency-check/DependencyCheck.git</connection>
-        <url>https://github.com/dependency-check/DependencyCheck/tree/master/maven</url>
+        <connection>scm:git:https://github.com/dependency-check/DependencyCheck</connection>
+        <url>https://github.com/dependency-check/DependencyCheck/tree/main/maven</url>
         <developerConnection>scm:git:git@github.com/dependency-check/DependencyCheck.git</developerConnection>
         <tag>HEAD</tag>
     </scm>
@@ -77,7 +76,7 @@ Copyright (c) 2013 Jeremy Long. All Rights Reserved.
             <dependency>
                 <groupId>org.apache.maven.plugin-tools</groupId>
                 <artifactId>maven-plugin-annotations</artifactId>
-                <version>3.15.2</version>
+                <version>3.16.0</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.maven.reporting</groupId>
@@ -107,7 +106,7 @@ Copyright (c) 2013 Jeremy Long. All Rights Reserved.
             <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
-                <version>4.0.3</version>
+                <version>4.1.0</version>
             </dependency>
             <dependency>
                 <!--
@@ -136,7 +135,7 @@ Copyright (c) 2013 Jeremy Long. All Rights Reserved.
                 <filtering>true</filtering>
             </resource>
             <resource>
-                <directory>${basedir}</directory>
+                <directory>${basedir}/..</directory>
                 <targetPath>META-INF</targetPath>
                 <includes>
                     <include>LICENSE.txt</include>
@@ -149,7 +148,7 @@ Copyright (c) 2013 Jeremy Long. All Rights Reserved.
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-plugin-plugin</artifactId>
-                <version>${version.maven-plugin-plugin}</version>
+                <version>3.16.0</version>
                 <configuration>
                     <goalPrefix>dependency-check</goalPrefix>
                 </configuration>
@@ -167,6 +166,14 @@ Copyright (c) 2013 Jeremy Long. All Rights Reserved.
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-site-plugin</artifactId>
+                <configuration>
+                    <!-- Overrides parent config to re-enable for plugin goal report -->
+                    <generateReports>true</generateReports>
+                </configuration>
             </plugin>
         </plugins>
     </build>
@@ -267,7 +274,18 @@ Copyright (c) 2013 Jeremy Long. All Rights Reserved.
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-plugin-report-plugin</artifactId>
-                <version>${version.maven-plugin-plugin}</version>
+                <version>3.16.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+                <version>3.9.0</version>
+                <reportSets>
+                    <reportSet>
+                        <!-- Don't generate any reports other than ones from the maven-plugin-report-plugin -->
+                        <reports/>
+                    </reportSet>
+                </reportSets>
             </plugin>
         </plugins>
     </reporting>

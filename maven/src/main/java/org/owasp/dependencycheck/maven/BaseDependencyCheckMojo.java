@@ -34,6 +34,7 @@ import org.apache.maven.artifact.versioning.VersionRange;
 import org.apache.maven.doxia.sink.Sink;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.License;
+import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -1424,9 +1425,9 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
     protected ExceptionCollection scanPlugins(MavenProject project, Engine engine, ExceptionCollection exCollection) {
         ExceptionCollection exCol = exCollection;
         final Set<Artifact> plugins = new HashSet<>();
-        final Set<Artifact> buildPlugins = getProject().getPluginArtifacts();
-        final Set<Artifact> reportPlugins = getProject().getReportArtifacts();
-        final Set<Artifact> extensions = getProject().getExtensionArtifacts();
+        final Set<Artifact> buildPlugins = project.getPluginArtifacts();
+        final Set<Artifact> reportPlugins = project.getReportArtifacts();
+        final Set<Artifact> extensions = project.getExtensionArtifacts();
 
         plugins.addAll(buildPlugins);
         plugins.addAll(reportPlugins);
@@ -1446,7 +1447,7 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
                         resolved.getGroupId(), resolved.getArtifactId(), null, "jar", resolved.getVersion());
 
                 final String parent = buildReference(resolved.getGroupId(), resolved.getArtifactId(), resolved.getVersion());
-                for (Artifact artifact : resolveArtifactDependencies(pluginRoot, project)) {
+                for (Artifact artifact : resolvePluginDependencies(pluginRoot, project)) {
                     exCol = addPluginToDependencies(project, engine, artifact, parent, exCol);
                 }
             } catch (ArtifactResolutionException | DependencyResolutionException | IllegalArgumentException ex) {
@@ -1530,11 +1531,16 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
         return includedBy;
     }
 
-    protected Set<Artifact> resolveArtifactDependencies(final org.eclipse.aether.artifact.Artifact rootArtifact, MavenProject project)
+    private Set<Artifact> resolvePluginDependencies(final org.eclipse.aether.artifact.Artifact rootArtifact, MavenProject project)
             throws DependencyResolutionException {
         final CollectRequest collectRequest = new CollectRequest();
         collectRequest.setRoot(new org.eclipse.aether.graph.Dependency(rootArtifact, null));
         collectRequest.setRepositories(project.getRemoteProjectRepositories());
+
+        // Also use dependency overrides in <plugin><dependencies> tags
+        final List<org.eclipse.aether.graph.Dependency> pluginDependencies = getPluginDependencies(rootArtifact, project);
+        collectRequest.setDependencies(pluginDependencies);
+        collectRequest.setManagedDependencies(pluginDependencies);
 
         final DependencyResult dependencyResult = repoSystem.resolveDependencies(
                 session.getRepositorySession(), new DependencyRequest(collectRequest, null));
@@ -1548,6 +1554,19 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
 
         return artifacts;
 
+    }
+
+    private List<org.eclipse.aether.graph.Dependency> getPluginDependencies(org.eclipse.aether.artifact.Artifact plugin, MavenProject project) {
+        final Plugin projectPlugin = project.getPlugin(plugin.getGroupId() + ":" + plugin.getArtifactId());
+        final List<org.eclipse.aether.graph.Dependency> dependencies = new ArrayList<>();
+
+        if (projectPlugin != null) {
+            for (org.apache.maven.model.Dependency dependency : projectPlugin.getDependencies()) {
+                dependencies.add(RepositoryUtils.toDependency(dependency, session.getRepositorySession().getArtifactTypeRegistry()));
+            }
+        }
+
+        return dependencies;
     }
 
     /**
@@ -2900,33 +2919,45 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
                 final boolean useUnscored = cvssV2 == -1 && cvssV3 == -1 && cvssV4 == -1;
                 final double unscoredCvss = (useUnscored && v.getUnscoredSeverity() != null) ? SeverityUtil.estimateCvssV2(v.getUnscoredSeverity()) : -1;
 
-                if (failBuildOnCVSS <= 0.0
-                        || cvssV2 >= failBuildOnCVSS
-                        || cvssV3 >= failBuildOnCVSS
-                        || cvssV4 >= failBuildOnCVSS
-                        || unscoredCvss >= failBuildOnCVSS
-                ) {
-                    String name = v.getName();
-                    if (cvssV4 >= 0.0) {
-                        name += "(" + cvssV4 + ")";
-                    } else if (cvssV3 >= 0.0) {
-                        name += "(" + cvssV3 + ")";
-                    } else if (cvssV2 >= 0.0) {
-                        name += "(" + cvssV2 + ")";
-                    } else if (unscoredCvss >= 0.0) {
-                        name += "(" + unscoredCvss + ")";
-                    }
-                    if (addName) {
-                        addName = false;
-                        ids.append(NEW_LINE).append(d.getFileName()).append(" (")
-                                .append(Stream.concat(d.getSoftwareIdentifiers().stream(), d.getVulnerableSoftwareIdentifiers().stream())
-                                        .map(Identifier::getValue)
-                                        .collect(Collectors.joining(", ")))
-                                .append("): ")
-                                .append(name);
+                // the score to display is the one that reached the threshold, so it is picked by
+                // the same comparison that decides whether the vulnerability fails the build
+                final double reportedScore;
+                if (failBuildOnCVSS > 0.0) {
+                    if (cvssV4 >= failBuildOnCVSS) {
+                        reportedScore = cvssV4;
+                    } else if (cvssV3 >= failBuildOnCVSS) {
+                        reportedScore = cvssV3;
+                    } else if (cvssV2 >= failBuildOnCVSS) {
+                        reportedScore = cvssV2;
+                    } else if (unscoredCvss >= failBuildOnCVSS) {
+                        reportedScore = unscoredCvss;
                     } else {
-                        ids.append(", ").append(name);
+                        continue;
                     }
+                } else if (cvssV4 >= 0.0) {
+                    reportedScore = cvssV4;
+                } else if (cvssV3 >= 0.0) {
+                    reportedScore = cvssV3;
+                } else if (cvssV2 >= 0.0) {
+                    reportedScore = cvssV2;
+                } else {
+                    reportedScore = unscoredCvss;
+                }
+
+                String name = v.getName();
+                if (reportedScore >= 0.0) {
+                    name += "(" + reportedScore + ")";
+                }
+                if (addName) {
+                    addName = false;
+                    ids.append(NEW_LINE).append(d.getFileName()).append(" (")
+                            .append(Stream.concat(d.getSoftwareIdentifiers().stream(), d.getVulnerableSoftwareIdentifiers().stream())
+                                    .map(Identifier::getValue)
+                                    .collect(Collectors.joining(", ")))
+                            .append("): ")
+                            .append(name);
+                } else {
+                    ids.append(", ").append(name);
                 }
             }
         }
